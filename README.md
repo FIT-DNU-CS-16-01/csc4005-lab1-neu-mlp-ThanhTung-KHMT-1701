@@ -1,3 +1,4 @@
+[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/LiEKMyvY)
 # CSC4005 Lab 1 – NEU MLP Starter
 
 Starter kit này dùng cho **Lab 1 – Training & Regularization** của CSC4005. Repo **không chứa thư mục `data/`**. Sinh viên chạy trực tiếp với đường dẫn tới bộ dữ liệu ngoài repo `NEU-CLS.zip`.
