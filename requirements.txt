@@ -1,2 +1,8 @@
 Pillow>=10.0
 wandb>=0.16
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.5.1+cu121
+torchvision==0.20.1+cu121
+scikit-learn
+matplotlib
+pandas

@@ -48,7 +48,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--test_size', type=float, default=0.15)
     parser.add_argument('--augment', action='store_true')
     parser.add_argument('--num_workers', type=int, default=0)
+    parser.add_argument('--device', type=str, choices=['auto', 'cpu', 'cuda'], default='auto')
     parser.add_argument('--use_wandb', action='store_true')
+    parser.add_argument('--wandb_mode', type=str, choices=['online', 'offline'], default='online')
     return parser.parse_args()
 
 
@@ -60,13 +62,26 @@ def get_optimizer(name: str, model: nn.Module, lr: float, weight_decay: float):
     raise ValueError(f'Unsupported optimizer: {name}')
 
 
+def resolve_device(device_arg: str) -> torch.device:
+    if device_arg == 'cpu':
+        return torch.device('cpu')
+    if device_arg == 'cuda':
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                'Bạn yêu cầu --device cuda nhưng CUDA không khả dụng trong môi trường hiện tại. '
+                'Hãy kiểm tra bản PyTorch CUDA, driver và phần cứng GPU hỗ trợ.'
+            )
+        return torch.device('cuda')
+    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
 def train_one_epoch(model, loader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
     y_true, y_pred = [], []
     for x, y in loader:
-        x = x.to(device)
-        y = y.to(device)
+        x = x.to(device, non_blocking=(device.type == 'cuda'))
+        y = y.to(device, non_blocking=(device.type == 'cuda'))
         optimizer.zero_grad()
         logits = model(x)
         loss = criterion(logits, y)
@@ -85,8 +100,8 @@ def evaluate(model, loader, criterion, device):
     running_loss = 0.0
     y_true, y_pred = [], []
     for x, y in loader:
-        x = x.to(device)
-        y = y.to(device)
+        x = x.to(device, non_blocking=(device.type == 'cuda'))
+        y = y.to(device, non_blocking=(device.type == 'cuda'))
         logits = model(x)
         loss = criterion(logits, y)
         running_loss += loss.item() * x.size(0)
@@ -99,7 +114,7 @@ def evaluate(model, loader, criterion, device):
 def main() -> None:
     args = parse_args()
     set_seed(args.seed)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = resolve_device(args.device)
     output_dir = ensure_dir(Path('outputs') / args.run_name)
 
     data = create_dataloaders(
@@ -111,9 +126,14 @@ def main() -> None:
         random_state=args.seed,
         augment=args.augment,
         num_workers=args.num_workers,
+        pin_memory=(device.type == 'cuda'),
     )
     print(f'Resolved data directory: {data.resolved_data_dir}')
     print(f'Classes: {data.class_names}')
+    if device.type == 'cuda':
+        print(f'Using device: {device} ({torch.cuda.get_device_name(0)})')
+    else:
+        print(f'Using device: {device}')
 
     model = MLPClassifier(
         input_dim=data.input_dim,
@@ -129,13 +149,14 @@ def main() -> None:
     if args.use_wandb and wandb is None:
         print('Cảnh báo: chưa import được wandb. Chạy tiếp ở chế độ không log online.')
     if use_wandb:
-        wandb.init(project=args.project, name=args.run_name, config=vars(args))
+        wandb.init(project=args.project, name=args.run_name, config=vars(args), mode=args.wandb_mode)
         wandb.config.update({
             'num_classes': len(data.class_names),
             'class_names': data.class_names,
             'input_dim': data.input_dim,
             'device': str(device),
             'resolved_data_dir': data.resolved_data_dir,
+            'gpu_name': torch.cuda.get_device_name(0) if device.type == 'cuda' else None,
         })
 
     history: list[dict[str, float]] = []

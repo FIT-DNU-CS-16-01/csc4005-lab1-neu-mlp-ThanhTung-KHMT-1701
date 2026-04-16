@@ -290,6 +290,7 @@ def create_dataloaders(
     random_state: int = 42,
     augment: bool = False,
     num_workers: int = 0,
+    pin_memory: bool = False,
 ) -> SplitData:
     samples, class_names, resolved_root = _resolve_samples(data_dir)
 
@@ -331,18 +332,21 @@ def create_dataloaders(
             batch_size=batch_size,
             shuffle=True,
             num_workers=num_workers,
+            pin_memory=pin_memory,
         ),
         val_loader=DataLoader(
             val_ds,
             batch_size=batch_size,
             shuffle=False,
             num_workers=num_workers,
+            pin_memory=pin_memory,
         ),
         test_loader=DataLoader(
             test_ds,
             batch_size=batch_size,
             shuffle=False,
             num_workers=num_workers,
+            pin_memory=pin_memory,
         ),
         class_names=class_names,
         input_dim=img_size * img_size,
